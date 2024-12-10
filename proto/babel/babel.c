@@ -693,10 +693,10 @@ babel_announce_rte(struct babel_proto *p, struct babel_entry *e)
       .from = r->neigh->addr,
       .nh.gw = r->next_hop,
       .nh.iface = r->neigh->ifa->iface,
-      .eattrs = alloca(sizeof(ea_list) + 3*sizeof(eattr)),
+      .eattrs = alloca(sizeof(ea_list) + 4*sizeof(eattr)),
     };
 
-    *a0.eattrs = (ea_list) { .count = 3 };
+    *a0.eattrs = (ea_list) { .count = 4 };
     a0.eattrs->attrs[0] = (eattr) {
       .id = EA_BABEL_METRIC,
       .type = EAF_TYPE_INT,
@@ -716,6 +716,12 @@ babel_announce_rte(struct babel_proto *p, struct babel_entry *e)
       .id = EA_BABEL_SEQNO,
       .type = EAF_TYPE_INT,
       .u.data = r->seqno,
+    };
+
+    a0.eattrs->attrs[3] = (eattr) {
+      .id = EA_BABEL_MTU,
+      .type = EAF_TYPE_INT,
+      .u.data = r->mtu,
     };
 
     /*
@@ -1025,14 +1031,15 @@ babel_send_update_(struct babel_iface *ifa, btime changed, struct fib *rtable)
     if (e->updated < changed)
       continue;
 
-    TRACE(D_PACKETS, "Sending update for %N router-id %lR seqno %d metric %d",
-	  e->n.addr, e->router_id, e->seqno, e->metric);
+    TRACE(D_PACKETS, "Sending update for %N router-id %lR seqno %d metric %d mtu %d",
+	  e->n.addr, e->router_id, e->seqno, e->metric, e->mtu);
 
     union babel_msg msg = {};
     msg.type = BABEL_TLV_UPDATE;
     msg.update.interval = ifa->cf->update_interval;
     msg.update.seqno = e->seqno;
     msg.update.metric = e->metric;
+    msg.update.mtu = e->mtu;
     msg.update.router_id = e->router_id;
     net_copy(&msg.update.net, e->n.addr);
 
@@ -1328,8 +1335,8 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
   if (msg->wildcard)
     TRACE(D_PACKETS, "Handling wildcard retraction", msg->seqno);
   else
-    TRACE(D_PACKETS, "Handling update for %N with seqno %d metric %d",
-	  &msg->net, msg->seqno, msg->metric);
+    TRACE(D_PACKETS, "Handling update for %N with seqno %d metric %d mtu %d",
+	  &msg->net, msg->seqno, msg->metric, msg->mtu);
 
   nbr = babel_find_neighbor(ifa, msg->sender);
   if (!nbr)
@@ -1421,6 +1428,7 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
   /* No further processing if there is no change */
   if ((r->feasible == feasible) && (r->seqno == msg->seqno) &&
       (r->metric == metric) && (r->advert_metric == msg->metric) &&
+      (r->mtu == msg->mtu) &&
       (r->router_id == msg->router_id) && ipa_equal(r->next_hop, msg->next_hop))
     return;
 
@@ -1431,6 +1439,7 @@ babel_handle_update(union babel_msg *m, struct babel_iface *ifa)
   r->advert_metric = msg->metric;
   r->router_id = msg->router_id;
   r->next_hop = msg->next_hop;
+  r->mtu = msg->mtu;
 
   /* If received update satisfies seqno request, we send triggered updates */
   if (babel_satisfy_seqno_request(p, e, msg->router_id, msg->seqno))
@@ -2215,6 +2224,10 @@ babel_get_attr(const eattr *a, byte *buf, int buflen UNUSED)
   case EA_BABEL_SEQNO:
     return GA_HIDDEN;
 
+  case EA_BABEL_MTU:
+    bsprintf(buf, "mtu: %d", a->u.data);
+    return GA_FULL;
+
   default:
     return GA_UNKNOWN;
   }
@@ -2443,6 +2456,7 @@ babel_rt_notify(struct proto *P, struct channel *c UNUSED, struct network *net,
     /* Update */
     uint rt_seqno;
     uint rt_metric = ea_get_int(new->attrs->eattrs, EA_BABEL_METRIC, 0);
+    uint rt_mtu = ea_get_int(new->attrs->eattrs, EA_BABEL_MTU, 0);
     u64 rt_router_id = 0;
 
     if (new->src->proto == P)
@@ -2478,6 +2492,7 @@ babel_rt_notify(struct proto *P, struct channel *c UNUSED, struct network *net,
     e->valid = BABEL_ENTRY_VALID;
     e->seqno = rt_seqno;
     e->metric = rt_metric;
+    e->mtu = rt_mtu;
     e->router_id = rt_router_id;
   }
   else
