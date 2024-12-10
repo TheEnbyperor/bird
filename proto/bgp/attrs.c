@@ -995,15 +995,6 @@ bgp_decode_mtu(struct bgp_parse_state *s, uint code UNUSED, uint flags, byte *da
   bgp_set_attr_u32(to, s->pool, BA_MTU, flags, val);
 }
 
-static void
-bgp_format_mtu(const eattr *a, byte *buf, uint size UNUSED)
-{
-  const byte *data = a->u.ptr->data;
-
-  bsprintf(buf, "%u", get_u32(data+0));
-}
-
-
 static inline void
 bgp_decode_unknown(struct bgp_parse_state *s, uint code, uint flags, byte *data, uint len, ea_list **to)
 {
@@ -1169,7 +1160,6 @@ static const struct bgp_attr_desc bgp_attr_table[] = {
     .flags = BAF_OPTIONAL,
     .encode = bgp_encode_u32,
     .decode = bgp_decode_mtu,
-    .format = bgp_format_mtu,
   },
 };
 
