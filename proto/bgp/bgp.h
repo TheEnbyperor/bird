@@ -152,6 +152,7 @@ struct bgp_config {
   int require_gr;			/* Require remote support for graceful restart [RFC 4724] */
   int require_llgr;			/* Require remote support for long-lived graceful restart [RFC 9494] */
   struct bfd_options *bfd;		/* Use BFD for liveness detection */
+  int mtu;
 };
 
 struct bgp_channel_config {

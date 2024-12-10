@@ -289,7 +289,9 @@ bgp_prepare_capabilities(struct bgp_conn *conn)
     caps->hostname = hostname;
   }
 
-  if (conn->sk->mtu)
+  if (p->cf->mtu)
+    caps->mtu = p->cf->mtu;
+  else if (conn->sk->mtu)
     caps->mtu = conn->sk->mtu;
 
   /* Allocate and fill per-AF fields */

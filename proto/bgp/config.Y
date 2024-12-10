@@ -233,6 +233,7 @@ bgp_proto:
  | bgp_proto LOCAL ROLE bgp_role_name ';' { BGP_CFG->local_role = $4; }
  | bgp_proto REQUIRE ROLES bool ';' { BGP_CFG->require_roles = $4; }
  | bgp_proto DISABLE RX bool ';' { BGP_CFG->disable_rx = $4; }
+ | bgp_proto MTU expr ';' { BGP_CFG->mtu = $3; if ($3 > 65535) cf_error("MTU must be less than 2^16"); }
  ;
 
 bgp_afi:

@@ -113,6 +113,8 @@ int sk_set_ipv6_checksum(sock *s, int offset);
 int sk_set_icmp6_filter(sock *s, int p1, int p2);
 void sk_log_error(sock *s, const char *p);
 
+void sk_tcp_get_mtu(struct birdsock *s);
+
 byte * sk_rx_buffer(sock *s, int *len);	/* Temporary */
 
 extern int sk_priority_control;		/* Suggested priority for control traffic, should be sysdep define */

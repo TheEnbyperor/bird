@@ -115,7 +115,6 @@ void *rf_file(struct rfile *f);
 int rf_fileno(struct rfile *f);
 void test_old_bird(const char *path);
 ip_addr resolve_hostname(const char *host, int type, const char **err_msg);
-void sk_tcp_get_mtu(struct birdsock *s);
 
 struct dump_request *dump_to_file_init(off_t offset);
 void dump_to_file_run(struct dump_request *dr, const char *file, const char *what, void (*dump)(struct dump_request *));
