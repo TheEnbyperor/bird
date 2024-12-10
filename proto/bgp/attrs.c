@@ -22,6 +22,8 @@
 #include "lib/resource.h"
 #include "lib/string.h"
 #include "lib/unaligned.h"
+#include "sysdep/unix/krt.h"
+#include CONFIG_INCLUDE_KRTSYS_H
 
 #include "bgp.h"
 
@@ -985,22 +987,37 @@ bgp_format_mpls_label_stack(const eattr *a, byte *buf, uint size)
   pos[lnum ? -1 : 0] = 0;
 }
 
-static void
-bgp_decode_mtu(struct bgp_parse_state *s, uint code UNUSED, uint flags, byte *data UNUSED, uint len, ea_list **to)
+static int
+bgp_encode_mtu(struct bgp_write_state *s UNUSED, eattr *a, byte *buf UNUSED, uint size UNUSED)
 {
-  if (len != 4)
+  const struct bgp_mtu_attr *data = (struct bgp_mtu_attr*)(&a->u.ptr->data);
+
+  bgp_put_attr_hdr3(buf, EA_ID(a->id), a->flags, 6);
+  put_u32(buf+3, data->origin_asn);
+  put_u16(buf+7, data->mtu & 0x3FFF);
+
+  return 3+6;
+}
+
+static void
+bgp_decode_mtu(struct bgp_parse_state *s, uint code UNUSED, uint flags, byte *data, uint len, ea_list **to)
+{
+  if (len != 6)
     WITHDRAW(BAD_LENGTH, "MTU", len);
 
-  u32 val = get_u32(data);
-  bgp_set_attr_u32(to, s->pool, BA_MTU, flags, val);
+  struct adata *ad = lp_alloc_adata(s->pool, sizeof(struct bgp_mtu_attr));
+  ((struct bgp_mtu_attr *)(&(ad->data)))->origin_asn = get_u32(data);
+  ((struct bgp_mtu_attr *)(&(ad->data)))->mtu = get_u16(data+4) & 0x3FFF;
+
+  bgp_set_attr_ptr(to, s->pool, BA_MTU, flags, ad);
 }
 
 static void
 bgp_format_mtu(const eattr *a, byte *buf, uint size UNUSED)
 {
-  const byte *data = a->u.ptr->data;
+  const struct bgp_mtu_attr *data = (struct bgp_mtu_attr*)(&(a->u.ptr->data));
 
-  bsprintf(buf, "%u", get_u32(data+0));
+  bsprintf(buf, "%u (origin AS%u)", data->mtu, data->origin_asn);
 }
 
 
@@ -1165,9 +1182,9 @@ static const struct bgp_attr_desc bgp_attr_table[] = {
   },
   [BA_MTU] = {
     .name = "mtu",
-    .type = EAF_TYPE_INT,
+    .type = EAF_TYPE_OPAQUE,
     .flags = BAF_OPTIONAL,
-    .encode = bgp_encode_u32,
+    .encode = bgp_encode_mtu,
     .decode = bgp_decode_mtu,
     .format = bgp_format_mtu,
   },
@@ -1953,6 +1970,33 @@ bgp_update_attrs(struct bgp_proto *p, struct bgp_channel *c, rte *e, ea_list *at
       bgp_set_attr_u32(&attrs, pool, BA_ONLY_TO_CUSTOMER, 0, p->public_as);
   }
 
+  if (p->peer_mtu_support) {
+    u16 mtu = 0;
+    a = ea_find(attrs, EA_KRT_MTU);
+    if (a)
+      mtu = a->u.data;
+    else
+      mtu = p->mtu;
+
+    if (mtu) {
+      a = bgp_find_attr(attrs, BA_MTU);
+      struct adata *ad = lp_alloc_adata(pool, sizeof(struct bgp_mtu_attr));
+      if (a) {
+        struct bgp_mtu_attr *d = (struct bgp_mtu_attr*)(&(a->u.ptr->data));
+        ((struct bgp_mtu_attr *)(&(ad->data)))->origin_asn = d->origin_asn;
+        if (mtu < d->mtu)
+          ((struct bgp_mtu_attr *)(&(ad->data)))->mtu = mtu;
+        else
+          ((struct bgp_mtu_attr *)(&(ad->data)))->mtu = d->mtu;
+      } else {
+        ((struct bgp_mtu_attr *)(&(ad->data)))->origin_asn = p->public_as;
+        ((struct bgp_mtu_attr *)(&(ad->data)))->mtu = mtu;
+      }
+      bgp_set_attr_ptr(&attrs, pool, BA_MTU, BAF_OPTIONAL, ad);
+    }
+  } else
+    bgp_unset_attr(&attrs, pool, BA_MTU);
+
   /*
    * Presence of mandatory attributes ORIGIN and AS_PATH is ensured by above
    * conditions. Presence and validity of quasi-mandatory NEXT_HOP attribute
@@ -2533,6 +2577,6 @@ bgp_get_route_info(rte *e, byte *buf)
   if (o)
     buf += bsprintf(buf, "%c", "ie?"[o->u.data]);
   if (m)
-    buf += bsprintf(buf, " MTU:%d", m->u.data);
+    buf += bsprintf(buf, " MTU %u", ((struct bgp_mtu_attr*)(&m->u.ptr->data))->mtu);
   strcpy(buf, "]");
 }

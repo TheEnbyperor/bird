@@ -289,10 +289,13 @@ bgp_prepare_capabilities(struct bgp_conn *conn)
     caps->hostname = hostname;
   }
 
-  if (p->cf->mtu)
+  if (p->cf->mtu) {
     caps->mtu = p->cf->mtu;
-  else if (conn->sk->mtu)
+    p->mtu = p->cf->mtu;
+  } else if (conn->sk->mtu) {
     caps->mtu = conn->sk->mtu;
+    p->mtu = conn->sk->mtu;
+  }
 
   /* Allocate and fill per-AF fields */
   BGP_WALK_CHANNELS(p, c)
@@ -685,6 +688,7 @@ bgp_read_capabilities(struct bgp_conn *conn, byte *pos, int len)
         goto err;
 
       caps->mtu = (pos[2] << 8) | pos[3];
+      p->peer_mtu_support = 1;
       break;
 
       /* We can safely ignore all other capabilities */

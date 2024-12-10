@@ -377,6 +377,8 @@ struct bgp_proto {
   u8 last_error_class; 			/* Error class of last error */
   u32 last_error_code;			/* Error code of last error. BGP protocol errors
 					   are encoded as (bgp_err_code << 16 | bgp_err_subcode) */
+  u16 mtu;
+  u8 peer_mtu_support;
 };
 
 struct bgp_channel {
@@ -732,6 +734,11 @@ byte *bgp_create_end_mark_(struct bgp_channel *c, byte *buf);
 #define BA_LARGE_COMMUNITY	0x20	/* RFC 8092 */
 #define BA_ONLY_TO_CUSTOMER	0x23	/* RFC 9234 */
 #define BA_MTU			0xFF	/* TBD */
+
+struct bgp_mtu_attr {
+  u32 origin_asn;
+  u16 mtu;
+};
 
 /* Bird's private internal BGP attributes */
 #define BA_MPLS_LABEL_STACK	0xfe	/* MPLS label stack transfer attribute */
