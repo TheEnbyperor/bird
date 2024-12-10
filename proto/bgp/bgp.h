@@ -731,6 +731,7 @@ byte *bgp_create_end_mark_(struct bgp_channel *c, byte *buf);
 #define BA_AIGP			0x1a	/* RFC 7311 */
 #define BA_LARGE_COMMUNITY	0x20	/* RFC 8092 */
 #define BA_ONLY_TO_CUSTOMER	0x23	/* RFC 9234 */
+#define BA_MTU			0xFF	/* TBD */
 
 /* Bird's private internal BGP attributes */
 #define BA_MPLS_LABEL_STACK	0xfe	/* MPLS label stack transfer attribute */

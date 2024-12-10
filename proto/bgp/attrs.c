@@ -985,6 +985,25 @@ bgp_format_mpls_label_stack(const eattr *a, byte *buf, uint size)
   pos[lnum ? -1 : 0] = 0;
 }
 
+static void
+bgp_decode_mtu(struct bgp_parse_state *s, uint code UNUSED, uint flags, byte *data UNUSED, uint len, ea_list **to)
+{
+  if (len != 4)
+    WITHDRAW(BAD_LENGTH, "MTU", len);
+
+  u32 val = get_u32(data);
+  bgp_set_attr_u32(to, s->pool, BA_MTU, flags, val);
+}
+
+static void
+bgp_format_mtu(const eattr *a, byte *buf, uint size UNUSED)
+{
+  const byte *data = a->u.ptr->data;
+
+  bsprintf(buf, "%u", get_u32(data+0));
+}
+
+
 static inline void
 bgp_decode_unknown(struct bgp_parse_state *s, uint code, uint flags, byte *data, uint len, ea_list **to)
 {
@@ -1143,6 +1162,14 @@ static const struct bgp_attr_desc bgp_attr_table[] = {
     .encode = bgp_encode_mpls_label_stack,
     .decode = bgp_decode_mpls_label_stack,
     .format = bgp_format_mpls_label_stack,
+  },
+  [BA_MTU] = {
+    .name = "mtu",
+    .type = EAF_TYPE_INT,
+    .flags = BAF_OPTIONAL,
+    .encode = bgp_encode_u32,
+    .decode = bgp_decode_mtu,
+    .format = bgp_format_mtu,
   },
 };
 
@@ -2474,6 +2501,7 @@ bgp_get_route_info(rte *e, byte *buf)
 {
   eattr *p = ea_find(e->attrs->eattrs, EA_CODE(PROTOCOL_BGP, BA_AS_PATH));
   eattr *o = ea_find(e->attrs->eattrs, EA_CODE(PROTOCOL_BGP, BA_ORIGIN));
+  eattr *m = ea_find(e->attrs->eattrs, EA_CODE(PROTOCOL_BGP, BA_MTU));
   u32 origas;
 
   buf += bsprintf(buf, " (%d", e->attrs->pref);
@@ -2504,5 +2532,7 @@ bgp_get_route_info(rte *e, byte *buf)
     buf += bsprintf(buf, "AS%u", origas);
   if (o)
     buf += bsprintf(buf, "%c", "ie?"[o->u.data]);
+  if (m)
+    buf += bsprintf(buf, " MTU:%d", m->u.data);
   strcpy(buf, "]");
 }
