@@ -29,6 +29,7 @@
 #define EA_BABEL_METRIC		EA_CODE(PROTOCOL_BABEL, 0)
 #define EA_BABEL_ROUTER_ID	EA_CODE(PROTOCOL_BABEL, 1)
 #define EA_BABEL_SEQNO		EA_CODE(PROTOCOL_BABEL, 2)
+#define EA_BABEL_MTU		EA_CODE(PROTOCOL_BABEL, 3)
 
 #define BABEL_MAGIC		42
 #define BABEL_VERSION		2
@@ -104,6 +105,7 @@ enum babel_subtlv_type {
   BABEL_SUBTLV_PADN		= 1,
   BABEL_SUBTLV_DIVERSITY	= 2, /* we don't support this */
   BABEL_SUBTLV_TIMESTAMP	= 3,
+  BABEL_SUBTLV_MTU		= 4,
 
   /* Mandatory subtlvs */
   BABEL_SUBTLV_SOURCE_PREFIX    = 128,
@@ -285,6 +287,7 @@ struct babel_route {
   u16 seqno;
   u16 metric;
   u16 advert_metric;
+  u16 mtu;
   u64 router_id;
   ip_addr next_hop;
   btime refresh_time;
@@ -313,6 +316,7 @@ struct babel_entry {
   u8 unreachable;			/* Unreachable route is announced */
   u16 seqno;				/* Outgoing seqno */
   u16 metric;				/* Outgoing metric */
+  u16 mtu;				/* Outgoing mtu */
   u64 router_id;			/* Outgoing router ID */
   btime updated;			/* Last change of outgoing rte, for triggered updates */
 
@@ -367,6 +371,7 @@ struct babel_msg_update {
   uint interval;
   u16 seqno;
   u16 metric;
+  u16 mtu;
   u64 router_id;
   union {
     net_addr net;
