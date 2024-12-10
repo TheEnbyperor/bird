@@ -953,6 +953,7 @@ bgp_send_open(struct bgp_conn *conn)
   DBG("BGP: Sending open\n");
   conn->sk->rx_hook = bgp_rx;
   conn->sk->tx_hook = bgp_tx;
+  sk_tcp_get_mtu(conn->sk);
   tm_stop(conn->connect_timer);
   bgp_prepare_capabilities(conn);
   bgp_schedule_packet(conn, NULL, PKT_OPEN);
@@ -2621,6 +2622,9 @@ bgp_show_capabilities(struct bgp_proto *p UNUSED, struct bgp_caps *caps)
 
   if (caps->role != BGP_ROLE_UNDEFINED)
     cli_msg(-1006, "      Role: %s", bgp_format_role_name(caps->role));
+
+  if (caps->mtu)
+    cli_msg(-1006, "      MTU: %d", caps->mtu);
 }
 
 static void

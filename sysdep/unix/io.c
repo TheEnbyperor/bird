@@ -1120,6 +1120,7 @@ sock_new(pool *p)
   // s->saddr = s->daddr = IPA_NONE;
   s->tos = s->priority = s->ttl = -1;
   s->fd = -1;
+  s->mtu = 0;
   return s;
 }
 
@@ -1258,6 +1259,22 @@ sk_connect(sock *s)
   return connect(s->fd, &sa.sa, SA_LEN(sa));
 }
 
+void
+sk_tcp_get_mtu(sock *s)
+{
+  int mtu;
+  int mtu_len = sizeof(mtu);
+  int e;
+  if ((e = getsockopt(s->fd, IPPROTO_IP, IP_MTU, &mtu, &mtu_len)) < 0)
+    log(L_WARN "SOCK: Failed to read MTU of socket: %s", strerror(errno));
+  else {
+    if (mtu > 65535)
+      log(L_WARN "SOCK: MTU returned by kernel abnormally large");
+    else
+      s->mtu = mtu;
+  }
+}
+
 static void
 sk_tcp_connected(sock *s)
 {
@@ -1334,6 +1351,7 @@ sk_passive_connected(sock *s, int type)
   sk_insert(t);
   sk_alloc_bufs(t);
   s->rx_hook(t, 0);
+
   return 1;
 }
 

@@ -79,6 +79,8 @@ typedef struct birdsock {
   const char *password;			/* Password for MD5 authentication */
   const char *err;			/* Error message */
   struct ssh_sock *ssh;			/* Used in SK_SSH */
+
+  u16 mtu;
 } sock;
 
 sock *sock_new(pool *);			/* Allocate new socket */

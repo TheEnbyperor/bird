@@ -273,6 +273,8 @@ struct bgp_caps {
 
   const char *hostname;			/* Hostname, RFC draft */
 
+  u16 mtu;
+
   u16 af_count;				/* Number of af_data items */
   u16 length;				/* Length of capabilities in OPEN msg */
 
