@@ -1970,15 +1970,18 @@ bgp_update_attrs(struct bgp_proto *p, struct bgp_channel *c, rte *e, ea_list *at
       bgp_set_attr_u32(&attrs, pool, BA_ONLY_TO_CUSTOMER, 0, p->public_as);
   }
 
-  if (p->peer_mtu_support) {
+  if (p->peer_mtu) {
     u16 mtu = 0;
     a = ea_find(attrs, EA_KRT_MTU);
     if (a)
       mtu = a->u.data;
     else
-      mtu = p->mtu;
+      mtu = p->local_mtu;
 
     if (mtu) {
+      if (p->peer_mtu < mtu)
+        mtu = p->peer_mtu;
+
       a = bgp_find_attr(attrs, BA_MTU);
       struct adata *ad = lp_alloc_adata(pool, sizeof(struct bgp_mtu_attr));
       if (a) {

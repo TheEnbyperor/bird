@@ -291,10 +291,10 @@ bgp_prepare_capabilities(struct bgp_conn *conn)
 
   if (p->cf->mtu) {
     caps->mtu = p->cf->mtu;
-    p->mtu = p->cf->mtu;
+    p->local_mtu = p->cf->mtu;
   } else if (conn->sk->mtu) {
     caps->mtu = conn->sk->mtu;
-    p->mtu = conn->sk->mtu;
+    p->local_mtu = conn->sk->mtu;
   }
 
   /* Allocate and fill per-AF fields */
@@ -688,7 +688,7 @@ bgp_read_capabilities(struct bgp_conn *conn, byte *pos, int len)
         goto err;
 
       caps->mtu = (pos[2] << 8) | pos[3];
-      p->peer_mtu_support = 1;
+      p->peer_mtu = caps->mtu;
       break;
 
       /* We can safely ignore all other capabilities */
