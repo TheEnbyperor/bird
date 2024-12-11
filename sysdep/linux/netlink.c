@@ -1841,57 +1841,67 @@ nl_parse_route(struct nl_parse_state *s, struct nlmsghdr *h)
       };
     }
 
-  if (a[RTA_METRICS])
-    {
-      u32 metrics[KRT_METRICS_MAX];
-      const char *cc_algo = NULL;
-      ea_list *ea = lp_alloc(s->pool, sizeof(ea_list) + KRT_METRICS_MAX * sizeof(eattr));
-      int t, n = 0;
+  u8 has_mtu = 0;
+  if (a[RTA_METRICS]) {
+    u32 metrics[KRT_METRICS_MAX];
+    const char *cc_algo = NULL;
+    ea_list *ea = lp_alloc(s->pool, sizeof(ea_list) + KRT_METRICS_MAX * sizeof(eattr));
+    int t, n = 0;
 
-      if (nl_parse_metrics(a[RTA_METRICS], metrics, &cc_algo, ARRAY_SIZE(metrics)) < 0)
-        {
-	  log(L_ERR "KRT: Received route %N with strange RTA_METRICS attribute", net->n.addr);
-	  return;
-	}
+    if (nl_parse_metrics(a[RTA_METRICS], metrics, &cc_algo, ARRAY_SIZE(metrics)) < 0) {
+	    log(L_ERR "KRT: Received route %N with strange RTA_METRICS attribute", net->n.addr);
+	    return;
+	  }
 
-      for (t = 1; t < KRT_METRICS_MAX; t++)
-	if (metrics[0] & (1 << t))
-	  if ((t == RTAX_LOCK) || (t == RTAX_FEATURES))
-	    {
-	      ea->attrs[n++] = (eattr) {
-		.id = EA_KRT_METRICS + t,
-		.type = EAF_TYPE_BITFIELD,
-		.u.data = metrics[t],
-	      };
-	    }
-          else if (t == RTAX_CC_ALGO)
-	    {
-	      struct adata *ad = lp_alloc_adata(s->pool, strlen(cc_algo));
-	      memcpy(ad->data, cc_algo, ad->length);
+    for (t = 1; t < KRT_METRICS_MAX; t++) {
+	    if (metrics[0] & (1 << t)) {
+	      if ((t == RTAX_LOCK) || (t == RTAX_FEATURES)) {
+	        ea->attrs[n++] = (eattr) {
+		        .id = EA_KRT_METRICS + t,
+		        .type = EAF_TYPE_BITFIELD,
+		        .u.data = metrics[t],
+	        };
+	      } else if (t == RTAX_CC_ALGO) {
+	        struct adata *ad = lp_alloc_adata(s->pool, strlen(cc_algo));
+	        memcpy(ad->data, cc_algo, ad->length);
 
-	      ea->attrs[n++] = (eattr) {
-		.id = EA_KRT_CONGCTL,
-		.type = EAF_TYPE_STRING,
-		.u.ptr = ad,
-	      };
-	    }
-	  else
-	    {
-	      ea->attrs[n++] = (eattr) {
-		.id = EA_KRT_METRICS + t,
-		.type = EAF_TYPE_INT,
-		.u.data = metrics[t],
-	      };
-	    }
-
-      if (n > 0)
-        {
-	  ea->next = ra->eattrs;
-	  ea->flags = EALF_SORTED;
-	  ea->count = n;
-	  ra->eattrs = ea;
-	}
+	        ea->attrs[n++] = (eattr) {
+		        .id = EA_KRT_CONGCTL,
+		        .type = EAF_TYPE_STRING,
+		        .u.ptr = ad,
+	        };
+	      } else {
+	        if (t == RTAX_MTU)
+	          has_mtu = 1;
+	        ea->attrs[n++] = (eattr) {
+		        .id = EA_KRT_METRICS + t,
+		        .type = EAF_TYPE_INT,
+		        .u.data = metrics[t],
+	        };
+	      }
+      }
     }
+
+    if (n > 0) {
+	    ea->next = ra->eattrs;
+	    ea->flags = EALF_SORTED;
+	    ea->count = n;
+	    ra->eattrs = ea;
+	  }
+  }
+
+  if (!has_mtu) {
+    ea_list *ea = lp_alloc(s->pool, sizeof(ea_list) + KRT_METRICS_MAX);
+    ea->attrs[0] = (eattr) {
+      .id = EA_KRT_METRICS + RTAX_MTU,
+      .type = EAF_TYPE_INT,
+      .u.data = ra->nh.iface->mtu,
+    };
+    ea->next = ra->eattrs;
+    ea->flags = EALF_SORTED;
+    ea->count = 1;
+    ra->eattrs = ea;
+  }
 
   rte *e = rte_get_temp(ra, p->p.main_source);
   e->net = net;

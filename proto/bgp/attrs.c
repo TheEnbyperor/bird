@@ -1186,6 +1186,7 @@ static const struct bgp_attr_desc bgp_attr_table[] = {
     .flags = BAF_OPTIONAL,
     .encode = bgp_encode_mtu,
     .decode = bgp_decode_mtu,
+    .format = bgp_format_mtu,
   },
 };
 
